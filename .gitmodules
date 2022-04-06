@@ -1,0 +1,3 @@
+[submodule "Pytris"]
+	path = Pytris
+	url = https://github.com/Chloe-323/Pytris
