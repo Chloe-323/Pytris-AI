@@ -64,6 +64,36 @@ class TetrisAI(tf.keras.Model):
                     kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0),
                     bias_initializer=tf.keras.initializers.RandomNormal(stddev=1.0))
             ]
+            self.evaluate( { #warm up
+              "board": [
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 1, 1, 0, 1, 0, 0, 0 ],
+                [ 0, 0, 0, 1, 1, 0, 1, 1, 0, 1 ],
+                [ 0, 1, 0, 1, 1, 1, 1, 1, 0, 1 ],
+                [ 1, 1, 1, 1, 1, 1, 1, 1, 0, 1 ]
+              ],
+              "cur_block": 2,
+              "swapped": False,
+              "queue": [ 3, 5, 3 ],
+              "held_block": -1
+            })
 
 
 
@@ -122,14 +152,14 @@ class TetrisAI(tf.keras.Model):
         return keypress_list
 
     def play_tetris(self, headless = True):
-        filename = "games/" + uuid.uuid4().hex 
-        f = open(filename, "w+")
+#       filename = "games/" + uuid.uuid4().hex 
+#       f = open(filename, "w+")
         local_headless_input = [] 
         score = 0
         prev_state = None
         for i in pytris.main(hardcode_speed = 1, headless = headless, headless_input = local_headless_input):
  #           print('0x' + hex(id(local_headless_input)))
-            f.write(i + "\n")
+#            f.write(i + "\n")
             cur_state = json.loads(i)
             if cur_state == prev_state:
                 continue
@@ -138,6 +168,7 @@ class TetrisAI(tf.keras.Model):
             if not headless:
                 print(cur_state)
             if "LOSS" in i:
+#                print(str(time.monotonic() - timer)[:4] + 's')
 #                print(cur_state['LOSS'])
                 return cur_state['LOSS']
             nn_output = self.evaluate(cur_state)
@@ -153,54 +184,43 @@ class TetrisAI(tf.keras.Model):
                     pygame.event.post(event)
         return score
 
-    def avg_score(self, n=12):
+    def avg_score_singlethread(self, n = 12):
+        timer = time.monotonic()
         sum_score = 0
         for i in range(n):
             sum_score += self.play_tetris()
+        print("ST: ", str(time.monotonic() - timer)[:4] + 's')
+        return int(sum_score / n)
+    
+    def avg_score(self, n=12):
+        timer = time.monotonic()
+        sum_score = 0
+        pool = ThreadPool(processes=n)
+        async_results = [pool.apply_async(self.play_tetris, ()) for i in range(n)]
+        pool.close()
+        pool.join()
+        for i in async_results:
+            sum_score += i.get()
+        print("MT", str(time.monotonic() - timer)[:4] + 's')
         return int(sum_score / n)
 
-def nn_avg_score(nn, n = 12):
-    pool = ThreadPool(processes = n)
-    async_results = [pool.apply_async(nn.play_tetris, ()) for i in range(n)]
-    pool.close()
-    pool.join()
-    sum_score = 0
-    for i in async_results:
-        sum_score += i.get()
-    return int(sum_score / n)
 
 def generation(nn_array, per_gen = 128, top_picks = 8):
     top_n = [(None, None) for i in range(top_picks)]
-    #gather the top scoring AIs
-    #run this AI and score it
-    pool = ThreadPool(processes=12)
-    async_results = [pool.apply_async(nn_avg_score, (nn, 12)) for nn in nn_array]
-#    imap = pool.imap_unordered(map_play_tetris, nn_array, chunksize = per_gen // 8)
-    pool.close()
-    timer = time.monotonic()
-    pool.join()
-    for i in range(len(async_results)):
- #   for nn in nn_array:
- #       nn_score = nn.avg_score()
-        nn_score = async_results[i].get()
-#        print(nn_score)
-        nn = nn_array[i]
-        #find out if it makes the cut
+    for nn in nn_array:
+#        nn_score = nn.avg_score_singlethread()
+        nn_score = nn.avg_score()
         for j in range(len(top_n)):
             if top_n[j][0] == None or nn_score > top_n[j][0]:
                 for k in range(len(top_n) - 2, j, -1):
                     top_n[k + 1] = top_n[k]
-#                top_n[j] = (nn_score, nn)
-                top_n[j] = (nn_score, nn_array[i])
+                top_n[j] = (nn_score, nn)
                 break
-#       if (i + 1) % (per_gen // 4) == 0:
-#           print("\t",  1 + (25 * 4 * i // per_gen), "%", "\t", str(time.monotonic() - timer)[:4] + 's',"\t", str(time.monotonic() - global_timer).split(".")[0] + "s", sep = "")
 
-    print(str(time.monotonic() - timer)[:4] + 's')
     return top_n
 
 
-def train_model(generations = 2500, per_gen = 128, top_picks = 8):
+def train_model(generations = 2500, per_gen = 32, top_picks = 8):
     nn_array = [TetrisAI() for i in range(per_gen)]
     top_n = [(None, None) for i in range(top_picks)]
     for i in range(generations):
