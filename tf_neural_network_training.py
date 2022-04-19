@@ -153,21 +153,19 @@ def process_outputs(output_tensor, ff=True):
 
 #TODO: Save progress to file automatically
 
-nn_array  = [gen_nn() for i in range(240)]
-top_n = [(None, None) for i in range(10)]
+nn_array  = [gen_nn() for i in range(120)]
+top_n = [(None, None) for i in range(5)]
 for h in range(num_iter):
     print("Iteration", h)
     for nn in nn_array:
-        for i in pytris.main(hardcode_speed = 1):
+        for i in pytris.main(hardcode_speed = 1, headless = True):
             cur_state = json.loads(i)
             if "LOSS" in i:
                 score = cur_state["LOSS"]
-#                print("Got", score)
+                print("Got", score)
                 assert(type(score) == int)
                 for j in range(len(top_n)):
                     if top_n[j][0] == None or score > top_n[j][0]:
-                        for k in range(len(top_n) - 2, j, -1):
-                            top_n[k + 1] = top_n[k]
                         top_n[j] = (score, nn)
                         break
                 break
@@ -180,8 +178,8 @@ for h in range(num_iter):
     print("TOP PERFORMERS:")
     for i in top_n:
         print(i[0])
-        nn_array += [gen_nn(i[1]) for j in range(40)]
-    nn_array += [gen_nn() for i in range(40)]
+        nn_array += [gen_nn(i[1]) for j in range(20)]
+    nn_array += [gen_nn() for i in range(20)]
 
 print("TOP PICKS:")
 input("Press ENTER to see results!")
