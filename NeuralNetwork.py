@@ -50,8 +50,9 @@ class TetrisAI(tf.keras.Model):
         else:
             self.cn_layers = [
                     tf.keras.layers.Conv2D(1, 4, activation='sigmoid', input_shape = cnn_input_shape[1:], padding = "same", kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
-                    tf.keras.layers.Conv2D(1, (1, 10), activation='relu', input_shape = cnn_input_shape[1:], kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
-#                    tf.keras.layers.Conv2D(1, (22, 3), activation='relu', input_shape = cnn_input_shape[1:], kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0))
+                    #                         x,   y
+                    tf.keras.layers.Conv2D(1, (10, 1), activation='sigmoid', input_shape = cnn_input_shape[1:], kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)), #process rows
+                    tf.keras.layers.Conv2D(1, (3, 22), activation='sigmoid', input_shape = cnn_input_shape[1:], kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0))  #process columns
             ]
             self.dense_layers = [
                 tf.keras.layers.Dense(256, 
@@ -92,19 +93,40 @@ class TetrisAI(tf.keras.Model):
                 [ 0, 1, 0, 1, 1, 1, 1, 1, 0, 1 ],
                 [ 1, 1, 1, 1, 1, 1, 1, 1, 0, 1 ]
               ],
-              "cur_block": 2,
-              "swapped": False,
-              "queue": [ 3, 5, 3 ],
-              "held_block": -1
+              "cur_block": self.onehot(2),
+              "swapped": 0,
+              "queue": [self.onehot(3), self.onehot(5), self.onehot(3)],
+              "held_block": self.onehot(-1)
             })
 
 
 
+    def onehot(self, piece):
+        return [0 if piece != n else 1 for n in range(7)]
+
+    def _block_converter(self, blocktype, rotation):
+        block_holder = [[0 for i in range(5)] for j in range(5)]
+        tetr = pytris.Tetromino(None, blocktype)
+#       for i in range(rotation):
+#           tetr.rotate()
+        lit_coords = tetr._absolute_coords()
+        for i in lit_coords:
+            block_holder[i[0]][i[1]] = 1
+        return block_holder
+
+
+#   def _predict_outcome(self, board, block, orientation, column):
+#       output_board = copy.deepcopy(board)
+#       block_squares = 
 
     def evaluate(self, cur_state):
         prepared_board = tf.constant(cur_state['board'], shape = cnn_input_shape, dtype='float')
 
-        dense_layers_input = np.array(cur_state['queue'] + [cur_state['cur_block'], int(cur_state['swapped']), cur_state['held_block']]).reshape(-1, 1)
+        dense_layers_input = np.array(self.onehot(cur_state['cur_block']) + self.onehot(cur_state['held_block']) + [int(cur_state['swapped'])])
+        for i in cur_state['queue']:
+            dense_layers_input = np.append(dense_layers_input, self.onehot(i))
+        dense_layers_input = dense_layers_input.reshape(-1, 1)
+#        dense_layers_input = np.array(cur_state['queue'] + [cur_state['cur_block'], int(cur_state['swapped']), cur_state['held_block']]).reshape(-1, 1)
         for i in self.cn_layers:
             dense_layers_input = np.append(
                     dense_layers_input,
@@ -160,25 +182,38 @@ class TetrisAI(tf.keras.Model):
         local_headless_input = [] 
         score = 0
         prev_state = None
-        for i in pytris.main(hardcode_speed = 1, headless = headless, headless_input = local_headless_input):
+        for i in pytris.main(hardcode_speed = 1 if headless else 5, headless = headless, headless_input = local_headless_input):
  #           print('0x' + hex(id(local_headless_input)))
 #            f.write(i + "\n")
             cur_state = json.loads(i)
-            if cur_state == prev_state:
-                continue
-            else:
-                prev_state = cur_state
-            if not headless:
-                print(cur_state)
             if "LOSS" in i:
 #                print(str(time.monotonic() - timer)[:4] + 's')
 #                print(cur_state['LOSS'])
                 return cur_state['LOSS']
+            #This code is NOT necessary bc we press DOWN
+            if prev_state != None:
+                if cur_state['board'] == prev_state['board']:
+                    print("ignoring")
+                    continue
+#           if prev_state != None:
+#               print("Prev state exists!")
+#               for i in cur_state['board']:
+#                   print(['_' if j == 0 else 'X' for j in i])
+#               print("---")
+#               for i in prev_state['board']:
+#                   print(['_' if j == 0 else 'X' for j in i])
+#               if prev_state['board'] == cur_state['board']:
+#                   print("ignoring")
+#                   continue
+            if not headless:
+                print(cur_state)
             nn_output = self.evaluate(cur_state)
             keypresses = self.process_outputs(nn_output, ff = headless)
 
             #The problem with multithreading lies here: all the threads share one pool.
             #You need to find another way to get input through
+            prev_state = cur_state
+#            print("Appending keypresses")
             for j in keypresses:
                 event = pygame.event.Event(pygame.KEYDOWN, key = j)
                 if headless:
@@ -211,10 +246,10 @@ class TetrisAI(tf.keras.Model):
 def generation(nn_array, per_gen = 128, top_picks = 8):
     top_n = [(None, None) for i in range(top_picks)]
     for nn in nn_array:
-        print('#', end="")
-        sys.stdout.flush()
 #        nn_score = nn.avg_score_singlethread()
         nn_score = nn.avg_score()
+        print('#', end="")
+        sys.stdout.flush()
         for j in range(len(top_n)):
             if top_n[j][0] == None or nn_score > top_n[j][0]:
                 for k in range(len(top_n) - 2, j, -1):
@@ -225,7 +260,7 @@ def generation(nn_array, per_gen = 128, top_picks = 8):
     return top_n
 
 
-def train_model(generations = 2500, per_gen = 32, top_picks = 8):
+def train_model(generations = 2, per_gen = 32, top_picks = 8):
     nn_array = [TetrisAI() for i in range(per_gen)]
     top_n = [(None, None) for i in range(top_picks)]
     for i in range(generations):
@@ -254,8 +289,8 @@ def multithread_testing():
         print(i.get())
 
 #multithread_testing()
-my_tetris_bot = train_model()
-print("Your AI is ready madam")
-while(1):
-    input()
-    my_tetris_bot.play_tetris(headless = False)
+#   my_tetris_bot = train_model()
+#   print("Your AI is ready madam")
+#   while(1):
+#       input()
+#       my_tetris_bot.play_tetris(headless = False)
