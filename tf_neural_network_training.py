@@ -8,6 +8,7 @@ import threading
 import time
 import json
 import copy
+from multiprocessing.pool import ThreadPool
 
 import tensorflow as tf
 import numpy as np
@@ -153,8 +154,8 @@ def process_outputs(output_tensor, ff=True):
 
 #TODO: Save progress to file automatically
 
-nn_array  = [gen_nn() for i in range(120)]
-top_n = [(None, None) for i in range(5)]
+nn_array  = [gen_nn() for i in range(180)]
+top_n = [(None, None) for i in range(10)]
 for h in range(num_iter):
     print("Iteration", h)
     for nn in nn_array:
@@ -166,6 +167,8 @@ for h in range(num_iter):
                 assert(type(score) == int)
                 for j in range(len(top_n)):
                     if top_n[j][0] == None or score > top_n[j][0]:
+                        for k in range(len(top_n) - 2, j, -1):
+                            top_n[k + 1] = top_n[k]
                         top_n[j] = (score, nn)
                         break
                 break
@@ -178,8 +181,8 @@ for h in range(num_iter):
     print("TOP PERFORMERS:")
     for i in top_n:
         print(i[0])
-        nn_array += [gen_nn(i[1]) for j in range(20)]
-    nn_array += [gen_nn() for i in range(20)]
+        nn_array += [gen_nn(i[1]) for j in range(30)]
+    nn_array += [gen_nn() for i in range(10)]
 
 print("TOP PICKS:")
 input("Press ENTER to see results!")
