@@ -54,7 +54,10 @@ class TetrisAI(tf.keras.Model):
 #                    tf.keras.layers.Conv2D(1, (22, 3), activation='relu', input_shape = cnn_input_shape[1:], kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0))
             ]
             self.dense_layers = [
-                tf.keras.layers.Dense(128, 
+                tf.keras.layers.Dense(256, 
+                    kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0),
+                    bias_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
+                tf.keras.layers.Dense(256,
                     kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0),
                     bias_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
                 tf.keras.layers.Dense(128,
@@ -189,7 +192,7 @@ class TetrisAI(tf.keras.Model):
         sum_score = 0
         for i in range(n):
             sum_score += self.play_tetris()
-        print("ST: ", str(time.monotonic() - timer)[:4] + 's')
+#        print("ST: ", str(time.monotonic() - timer)[:4] + 's')
         return int(sum_score / n)
     
     def avg_score(self, n=12):
@@ -201,13 +204,15 @@ class TetrisAI(tf.keras.Model):
         pool.join()
         for i in async_results:
             sum_score += i.get()
-        print("MT", str(time.monotonic() - timer)[:4] + 's')
+#        print("MT", str(time.monotonic() - timer)[:4] + 's')
         return int(sum_score / n)
 
 
 def generation(nn_array, per_gen = 128, top_picks = 8):
     top_n = [(None, None) for i in range(top_picks)]
     for nn in nn_array:
+        print('#', end="")
+        sys.stdout.flush()
 #        nn_score = nn.avg_score_singlethread()
         nn_score = nn.avg_score()
         for j in range(len(top_n)):
@@ -224,8 +229,8 @@ def train_model(generations = 2500, per_gen = 32, top_picks = 8):
     nn_array = [TetrisAI() for i in range(per_gen)]
     top_n = [(None, None) for i in range(top_picks)]
     for i in range(generations):
-        print("Generation", i + 1)
-
+        print("Generation ", i + 1, ": ", sep = "", end = "")
+        sys.stdout.flush()
         top_n = generation(nn_array, per_gen, top_picks)
         nn_array = [j[1] for j in top_n]
         nn_array += [TetrisAI(top_n[0][1]) for j in range(per_gen // 4)] #1/4 for the top scorer
@@ -233,7 +238,7 @@ def train_model(generations = 2500, per_gen = 32, top_picks = 8):
             nn_array += [TetrisAI(nn[1]) for j in range(per_gen // 2 // top_picks)] #1/16 for the top other ones
 
         nn_array += [TetrisAI() for j in range(per_gen - len(nn_array))] #the rest are randomized
-        print('#' * (top_n[0][0] // 100))
+        print("\n", top_n[0][0])
     return top_n[0][1]
 
 def multithread_testing():
