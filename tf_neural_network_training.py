@@ -7,6 +7,7 @@ import pytris
 import threading
 import time
 import json
+import copy
 
 import tensorflow as tf
 import numpy as np
@@ -51,27 +52,39 @@ cnn_input_shape = (1, board_shape[0], board_shape[1], 1)
 g = tf.random.Generator.from_non_deterministic_state()
 alambda = 30 #1/learning rate
 num_iter = 3000
+total_input_size = 248
 
 def gen_nn(seed_nn = None):
     cnn_input_shape = (1, board_shape[0], board_shape[1], 1)
     to_return = {}
     if seed_nn == None:
-        to_return['cnn'] = tf.keras.layers.Conv2D(1, 4, activation='relu', input_shape = cnn_input_shape[1:], padding = "same", kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0))
-        to_return['cnn'].trainable = False
+        to_return['cnn'] = [
+                tf.keras.layers.Conv2D(1, 4, activation='relu', input_shape = cnn_input_shape[1:], padding = "same", kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
+                tf.keras.layers.Conv2D(1, (1, 10), activation='relu', input_shape = cnn_input_shape[1:], kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0))
+                ]
+        to_return['cnn'][0].trainable = False
+        to_return['cnn'][1].trainable = False
         to_return['dense'] = [ #doing this bc I was having some trouble with sequentials
-            tf.keras.layers.Dense(128, input_shape = (1, 226), kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
-            tf.keras.layers.Dense(128, kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
-            tf.keras.layers.Dense(80, kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)) #10 columns * 4 possible orientations * 2 possible blocks = 80
+            tf.keras.layers.Dense(128, input_shape = (1, total_input_size),
+                kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0),
+                bias_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
+            tf.keras.layers.Dense(128,
+                kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0),
+                bias_initializer=tf.keras.initializers.RandomNormal(stddev=1.0)),
+            tf.keras.layers.Dense(80, #10 columns * 4 possible orientations * 2 possible blocks = 80
+                kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1.0),
+                bias_initializer=tf.keras.initializers.RandomNormal(stddev=1.0))
         ]
     else:
-        to_return = seed_nn
+        to_return = copy.deepcopy(seed_nn)
 
         #nudge cnn layer
-        cnn_weight_deltas = tf.math.divide(g.normal(to_return['cnn'].weights[0].shape), alambda) 
-        cnn_new_weights = tf.math.add(to_return['cnn'].weights[0], cnn_weight_deltas)
-        #this next part is just to get these new weights to fit.
-        cnn_new_weights_acceptable = [tf.Variable(cnn_new_weights), tf.Variable([0.0])]
-        to_return['cnn'].set_weights(cnn_new_weights_acceptable)
+        for i in range(len(to_return['cnn'])):
+            cnn_weight_deltas = tf.math.divide(g.normal(to_return['cnn'][i].weights[0].shape), alambda) 
+            cnn_new_weights = tf.math.add(to_return['cnn'][i].weights[0], cnn_weight_deltas)
+            #this next part is just to get these new weights to fit.
+            cnn_new_weights_acceptable = [tf.Variable(cnn_new_weights), tf.Variable([0.0])]
+            to_return['cnn'][i].set_weights(cnn_new_weights_acceptable)
 
         #nudge other layers
         for i in range(len(to_return['dense'])):
@@ -81,16 +94,19 @@ def gen_nn(seed_nn = None):
             d_new_biases = tf.math.add(to_return['dense'][i].weights[1], d_bias_deltas)
             d_new_weights_acceptable = [tf.Variable(d_new_weights), tf.Variable(d_new_biases)]
             to_return['dense'][i].set_weights(d_new_weights_acceptable)
+
     return to_return
 
 def nn_process_state(nn, cur_state):
     prepared_board = tf.constant(cur_state['board'], shape = cnn_input_shape, dtype='float')
 
 #Preprocess with one convolutional layer. Then pool into a dense network with n layers
-    processed_board = nn['cnn'](prepared_board).numpy().reshape(1, -1)
+    processed_board_0 = nn['cnn'][0](prepared_board).numpy().reshape(1, -1)
+    processed_board_1 = nn['cnn'][1](prepared_board).numpy().reshape(1, -1)
 
     rest_of_model_input = cur_state['queue'] + [cur_state['cur_block'], int(cur_state['swapped']), cur_state['held_block']]
-    full_model_input = np.append(processed_board, rest_of_model_input).reshape(226, 1)
+    full_model_input = np.append(processed_board_0, processed_board_1).reshape(-1, 1)
+    full_model_input = np.append(full_model_input, rest_of_model_input).reshape(-1, 1)
 
 #Build rest of model linearly
     output = full_model_input 
@@ -135,8 +151,10 @@ def process_outputs(output_tensor, ff=True):
     return keypress_list
     
 
-nn_array  = [gen_nn() for i in range(100)]
-top_n = [(None, None) for i in range(5)]
+#TODO: Save progress to file automatically
+
+nn_array  = [gen_nn() for i in range(240)]
+top_n = [(None, None) for i in range(10)]
 for h in range(num_iter):
     print("Iteration", h)
     for nn in nn_array:
@@ -148,6 +166,8 @@ for h in range(num_iter):
                 assert(type(score) == int)
                 for j in range(len(top_n)):
                     if top_n[j][0] == None or score > top_n[j][0]:
+                        for k in range(len(top_n) - 2, j, -1):
+                            top_n[k + 1] = top_n[k]
                         top_n[j] = (score, nn)
                         break
                 break
@@ -160,7 +180,8 @@ for h in range(num_iter):
     print("TOP PERFORMERS:")
     for i in top_n:
         print(i[0])
-        nn_array += [gen_nn(i[1]) for j in range(20)]
+        nn_array += [gen_nn(i[1]) for j in range(40)]
+    nn_array += [gen_nn() for i in range(40)]
 
 print("TOP PICKS:")
 input("Press ENTER to see results!")
