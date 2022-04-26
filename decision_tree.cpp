@@ -502,6 +502,9 @@ class DecisionTreeNode {
                 if(children_vec[i]->q_value >= cutoff){
                     children_vec[i]->generate_children();
                     num_expanded += 1;
+                }else{
+                    delete children_vec[i]; //memory optimization
+                    children_vec[i] = nullptr;
                 }
             }
             return num_children;
@@ -545,13 +548,13 @@ class DecisionTree{
             this->selection_range = selection_range;
             this->gamma = gamma;
             this->initial_state = s;
-            cout << "Generating tree..." << endl;
-            clock_t begin = clock();
+//          cout << "Generating tree..." << endl;
+//          clock_t begin = clock();
             this->root = new DecisionTreeNode(depth, s, gamma, selection_range, -1, nullptr);
             this->root->generate_children();
             clock_t end = clock();
             this->num_children = root->num_children;
-            cout << "Tree generated in " << double(end - begin) / CLOCKS_PER_SEC << " seconds." << endl;
+//          cout << "Tree generated in " << double(end - begin) / CLOCKS_PER_SEC << " seconds." << endl;
         }
         ~DecisionTree(){
             delete root;
@@ -626,7 +629,7 @@ state random_state(int depth){
 
 std::string json_state(state s){
     std::stringstream ss;
-    ss << "{\"board\":[";
+    ss << "'{\"board\":[";
     for(int i = 0; i < 20; i++){
         ss << "[";
         for(int j = 0; j < 10; j++){
@@ -645,17 +648,28 @@ std::string json_state(state s){
     ss << ",\"queue\":[" << s.next[0].type << "," << s.next[1].type << "," << s.next[2].type << "]";
     ss << ",\"swapped\":" << "false";
     ss << ",\"held_block\":" << s.held.type;
-    ss << "}";
+    ss << "}'";
     return ss.str();
 }
 
 void train_to_file(int games, int depth, int selection_range, float gamma, std::string filename){
     std::ofstream outfile;
     outfile.open(filename);
-    for(int i = 0; i < games; i++){
+    clock_t begin = clock();
+    clock_t latest_iter = clock();
+    for(int i = 1; i < games + 1; i++){
+        if(i % 50 == 0){
+            cout << "========================================================" << endl;
+            cout << "Game " << i << " of " << games << endl;
+            cout << "Total time: " << int(double(clock() - begin) / CLOCKS_PER_SEC) / 3600 << ":" << int(double(clock() - begin) / CLOCKS_PER_SEC / 60) % 60 << ":" << int(double(clock() - begin) / CLOCKS_PER_SEC) % 60 << endl;
+            cout << "Latest iteration time: " << double(clock() - latest_iter) / CLOCKS_PER_SEC << " seconds." << endl;
+            cout << "Percent complete: " << (double(i) / games) * 100 << "%" << endl;
+            cout << "Estimated time remaining: " << int((double(clock() - begin) / CLOCKS_PER_SEC) / ((double(i) / games) * 100) * 100 / 3600) << ":" << int((double(clock() - begin) / CLOCKS_PER_SEC) / ((double(i) / games) * 100) * 100 / 60) % 60 << ":" << int((double(clock() - begin) / CLOCKS_PER_SEC) / ((double(i) / games) * 100) * 100) % 60 << endl;
+        }
+        latest_iter = clock();
         state s = random_state(rand() % 5 + 10);
         DecisionTree *dt = new DecisionTree(s, depth, selection_range, gamma);
-        outfile << json_state(s) << ":" << dt->best_action() << endl;
+        outfile << json_state(s) << "||" << dt->best_action() << endl;
         delete dt;
     }
     outfile.close();
@@ -664,7 +678,7 @@ void train_to_file(int games, int depth, int selection_range, float gamma, std::
 int main(int argc, char *argv[]){
     srand(time(NULL));
     if(argc != 6){
-        cout << "Usage: ./main <games> <depth> <selection_range> <gamma> <filename>" << endl;
+        cout << "Usage: "<<argv[0] << " <games> <depth> <selection_range> <gamma> <filename>" << endl;
         return 0;
     }
     int games = atoi(argv[1]);
