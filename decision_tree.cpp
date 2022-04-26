@@ -6,6 +6,8 @@
 #include <ctime>
 #include <chrono>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 using namespace std;
 
@@ -116,6 +118,7 @@ struct state {
     tetromino current;
     tetromino held;
     tetromino next[3];
+    bool lost;
 };
 struct state initial_state = {
     {
@@ -145,7 +148,8 @@ struct state initial_state = {
     0,
     tetr_T,
     tetr_null,
-    {tetr_I, tetr_J, tetr_O}
+    {tetr_I, tetr_J, tetr_O},
+    false
 };
 
 struct action {
@@ -255,16 +259,23 @@ int grade_state(state &s, int method = 1) {
     return grade;
 }
 
-//TODO: predict loss
 state predict_outcome(state s, tetromino tetr, action a) {
     int rotation = a.rotation;
     int column = a.column;
     bool swap = a.swap;
     column -= 1; //adjustment for compatibility with the python code
-    if(swap && s.held.type != -1) {
-        tetromino temp = tetr;
-        tetr = s.held;
-        s.held = temp;
+    if(swap) {
+        if(s.held.type == -1){
+            s.held = tetr;
+            s.held.rotation = 0;
+            tetr = s.next[0];
+            s.next[0] = s.next[1];
+            s.next[1] = s.next[2];
+        }else{
+            tetromino temp = tetr;
+            tetr = s.held;
+            s.held = temp;
+        }
     }
     if (tetr.type == I) //Hotfix for I tetromino
         column -= 1;
@@ -302,6 +313,7 @@ state predict_outcome(state s, tetromino tetr, action a) {
         }
     }
     //find lowest row where tetromino can be placed and place it there
+    bool placed = false;
     for(int i = 21; i >= 0; i--) {
         //if there is overlap between tetr_vec and these rows, then we can't place the tetromino here
         bool overlap = false;
@@ -345,6 +357,7 @@ state predict_outcome(state s, tetromino tetr, action a) {
                     }
                 }
             }
+            placed = true;
             new_state.current = tetr;
             break;
         }
@@ -384,6 +397,10 @@ state predict_outcome(state s, tetromino tetr, action a) {
     new_state.next[2] = *tetrominos[rand() % 7];
     new_state.score += 1; //not identical to the python code, but fulfills the same goal
     new_state.score += rows_cleared * rows_cleared * 10; //not identical to the python code, but fulfills the same goal
+    if (placed == false) {
+        new_state.score = -1;
+        new_state.lost = true;
+    }
     return new_state;
 }
 
@@ -508,6 +525,11 @@ class DecisionTreeNode {
         bool operator>(const DecisionTreeNode &other) const {
             return this->q_value > other.q_value;
         }
+        ~DecisionTreeNode(){
+            for(int i = 0; i < num_children; i++){
+                delete children_vec[i];
+            }
+        }
 };
 
 class DecisionTree{
@@ -530,6 +552,9 @@ class DecisionTree{
             clock_t end = clock();
             this->num_children = root->num_children;
             cout << "Tree generated in " << double(end - begin) / CLOCKS_PER_SEC << " seconds." << endl;
+        }
+        ~DecisionTree(){
+            delete root;
         }
         int best_action(){
             int best_action = -1;
@@ -591,15 +616,61 @@ class DecisionTree{
 //  }
 ////////////////////////////////////////////////////////////////////////////////
 
+state random_state(int depth){
+    state s = initial_state;
+    for(int i = 0; i < depth; i++){
+        s = predict_outcome(s, s.current, get_action(rand() % 80));
+    }
+    return s;
+}
+
+std::string json_state(state s){
+    std::stringstream ss;
+    ss << "{\"board\":[";
+    for(int i = 0; i < 20; i++){
+        ss << "[";
+        for(int j = 0; j < 10; j++){
+            ss << s.grid[i][j];
+            if(j != 9){
+                ss << ",";
+            }
+        }
+        ss << "]";
+        if(i != 19){
+            ss << ",";
+        }
+    }
+    //current type
+    ss << "],\"cur_block\":" << s.current.type;
+    ss << ",\"queue\":[" << s.next[0].type << "," << s.next[1].type << "," << s.next[2].type << "]";
+    ss << ",\"swapped\":" << "false";
+    ss << ",\"held_block\":" << s.held.type;
+    ss << "}";
+    return ss.str();
+}
+
+void train_to_file(int games, int depth, int selection_range, float gamma, std::string filename){
+    std::ofstream outfile;
+    outfile.open(filename);
+    for(int i = 0; i < games; i++){
+        state s = random_state(rand() % 5 + 10);
+        DecisionTree *dt = new DecisionTree(s, depth, selection_range, gamma);
+        outfile << json_state(s) << ":" << dt->best_action() << endl;
+        delete dt;
+    }
+    outfile.close();
+}
 
 int main(int argc, char *argv[]){
     srand(time(NULL));
-    if(argc != 3){
-        cout << "Usage: ./main <depth> <selection_range>" << endl;
+    if(argc != 6){
+        cout << "Usage: ./main <games> <depth> <selection_range> <gamma> <filename>" << endl;
         return 0;
     }
-    int depth = atoi(argv[1]);
-    int selection_range = atoi(argv[2]);
-    DecisionTree d = DecisionTree(initial_state, depth, selection_range, 0.5);
-    d.walk_tree();
+    int games = atoi(argv[1]);
+    int depth = atoi(argv[2]);
+    int selection_range = atoi(argv[3]);
+    float gamma = atof(argv[4]);
+    std::string filename = argv[5];
+    train_to_file(games, depth, selection_range, gamma, filename);
 }
