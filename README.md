@@ -25,7 +25,7 @@ this is to set up what's called a Q-learning algorithm. The basic idea is that y
 Then you have a Q function which is defined as Q(p) = (s(p) + g(Q(p+1))), where s(p) is the score function and g is some gamma value between 0 and 1. You can read more about this here (https://en.wikipedia.org/wiki/Q-learning),
 but the idea is that calculating an accurate Q value will take a while (see the python implementation which cannot go past a depth of 2 within a reasonable timeframe), so your NN will approximate the Q value.
 
-## Implementation
+### Implementation
 The way I did this for Tetris is with a decision tree. Each state is a node on a tree, and you can travel from one to the next by taking an action in the game. The implementation is depth-first, and Q-values are automatically updated.
 In Python, a tree with a depth of 2 takes about 2 seconds to calculate, and a tree with a depth of 3 takes about 120 seconds. This is not acceptable, so I decided to reimplement it in C++, which has a 100x faster runtime than Python.
 Indeed, in C++, a tree with a depth of 2 takes about 0.04 seconds to calculate and a tree of depth 3 takes about 1.6 seconds.
