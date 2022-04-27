@@ -37,7 +37,11 @@ literally runs out of memory before it can finish. In Tetris, there are a lot of
 With this optimization, a tree with a depth of 4 and a cutoff of 15 (top 15 nodes get picked) can be built in 2.3 seconds. A tree with a depth of 5 and a cutoff of 5 can be built in 13 seconds. Moreover, this is starting from an empty board
 where there are a lot of identical scoring moves. In these cases, the code will consider both. So even if you set the cutoff to 5, if there are 30 moves that have the same score, then all 30 of those moves will be considered.
 
-My goal now is to use this decision tree to generate training examples as either (state, move) pairs or (state, Q-value) pairs. Then, I use these training examples to train the neural network.
+After setting up 40gb of swap space on my computer, I was able to generate a dataset of 15000 states, a depth of 4, and a cutoff of 12 (meaning top 12 get to move on). Some other changes I made to the C++ code include actually calculating Q-values, returning an automatic score of -10k on a loss, and having the training states alter between random and decent gameplay. Before, I would just give it random positions and have it judge them and the Q values were all negative. So I changed it to alternate between random states and states that the tree itself came up with (remember, the AI is approximating the tree, so in this world the tree plays perfectly (ish. I used a depth of 1 to get decent states but depth of 3 or 4 is significantly better). 
+
+Most of the work was done in getting the neural network to run. Basically due to the huge difference in computation speed doing the tree is not feasible in python so the idea is that the neural network learns to estimate the Q values given a position. Then it looks at every option, gives them a Q value, and the lowest one gets picked. Hopefully, once it's done training, it'll be able to rate a position and thus choose the best move based on the position it will yield.
+
+It's still in the process of training but from a test run with just 500 epochs it seems to at least manage to clear a line, so that's something I suppose.
 
 ### Code
 `TetrisAI.py` is the python code containing the actual neural network as well as my first implementation of the decision tree. `decision_tree.cpp` is the C++ code to generate the decision tree.
