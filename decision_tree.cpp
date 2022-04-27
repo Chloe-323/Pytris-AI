@@ -221,10 +221,13 @@ int grade_state(state &s, int method = 1) {
         return s.delta_score;
     }
 
+//  cout << "Grading state" << endl;
+//  print_state(s);
     int grade = 0;
     int bumpiness = 0;
     int heights[10];
     int holes = 0;
+    int empty_rows = 0;
 
     //calculate bumpiness
     for (int i = 0; i < 10; i++) {
@@ -247,16 +250,41 @@ int grade_state(state &s, int method = 1) {
             }
         }
     }
+    //count empty rows
+    for (int i = 0; i < 22; i++) {
+        bool empty = true;
+        for (int j = 0; j < 10; j++) {
+            if (s.grid[i][j]) {
+                empty = false;
+                break;
+            }
+        }
+        if (empty) {
+            empty_rows++;
+        } else {
+            break; //no need to check the rest of the rows
+        }
+    }
+
+//  cout << "Bumpiness: " << bumpiness << endl;
+//  cout << "Holes: " << holes << endl;
+//  cout << "Empty rows: " << empty_rows << endl;
+//  cout << "Delta score: " << s.delta_score << endl;
     switch (method) {
         case 0:
             grade = s.delta_score;
             break;
         case 1:
-            grade = s.delta_score - 2*(bumpiness - (4 * holes));
+//          cout << "Grade method: Delta score + empty rows - 5 * (bumpiness - (10 * holes))" << endl;
+//          cout << "Grade: " << s.delta_score + empty_rows - 5 * (bumpiness + (10 * holes))<< endl;
+            grade = s.delta_score + empty_rows - 5*(bumpiness + (10 * holes));
             break;
         case 2:
             //score - bumpiness
             grade = s.delta_score - 3 * (bumpiness);
+            break;
+        case 3:
+            grade = s.delta_score - 2*(bumpiness - (4 * holes));
             break;
         default:
             grade = s.score - bumpiness - (4 * holes);
@@ -705,7 +733,12 @@ void train_to_file(int games, int depth, int selection_range, float gamma, std::
             delete nearsighted_dt;
         }
         DecisionTree *dt = new DecisionTree(s, depth, selection_range, gamma);
-        outfile << json_state(s) << "||" << dt->root->q_value << endl;
+        for(int j = 0; j < depth; j++){
+            s = dt->best_state();
+            delete dt;
+            dt = new DecisionTree(s, depth, selection_range, gamma);
+            outfile << json_state(s) << "||" << dt->root->q_value << endl;
+        }
         delete dt;
     }
     outfile.close();

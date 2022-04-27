@@ -47,38 +47,40 @@ class TetrisAI:
         flatten_total = tf.keras.layers.Flatten()(total_input)
         concat_total = tf.keras.layers.concatenate([flatten_board, flatten_total])
         #dense layers to process
-        dense_1  = tf.keras.layers.Dense(units = 102, activation = "tanh")(concat_total)
-        dense_2  = tf.keras.layers.Dense(units = 100, activation = "tanh")(dense_1)
-        dense_3  = tf.keras.layers.Dense(units = 98, activation = "tanh")(dense_2)
-        dense_4  = tf.keras.layers.Dense(units = 96, activation = "tanh")(dense_3)
-        dense_5  = tf.keras.layers.Dense(units = 94, activation = "tanh")(dense_4)
-        dense_6  = tf.keras.layers.Dense(units = 92, activation = "tanh")(dense_5)
-        dense_7  = tf.keras.layers.Dense(units = 90, activation = "tanh")(dense_6)
-        dense_8  = tf.keras.layers.Dense(units = 88, activation = "tanh")(dense_7)
-        dense_9  = tf.keras.layers.Dense(units = 86, activation = "tanh")(dense_8)
-        dense_10 = tf.keras.layers.Dense(units = 84, activation = "tanh")(dense_9)
-        dense_11 = tf.keras.layers.Dense(units = 82, activation = "tanh")(dense_10)
-        dense_12 = tf.keras.layers.Dense(units = 80, activation = "tanh")(dense_11)
-        dense_13 = tf.keras.layers.Dense(units = 78, activation = "tanh")(dense_12)
-        dense_14 = tf.keras.layers.Dense(units = 76, activation = "tanh")(dense_13)
-        dense_15 = tf.keras.layers.Dense(units = 74, activation = "tanh")(dense_14)
-        dense_16 = tf.keras.layers.Dense(units = 72, activation = "tanh")(dense_15)
-        dense_17 = tf.keras.layers.Dense(units = 70, activation = "tanh")(dense_16)
-        dense_18 = tf.keras.layers.Dense(units = 68, activation = "tanh")(dense_17)
-        dense_19 = tf.keras.layers.Dense(units = 66, activation = "tanh")(dense_18)
-        dense_20 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_19)
-        dense_21 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_20)
-        dense_22 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_21)
-        dense_23 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_22)
-        dense_24 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_23)
-        dense_25 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_24)
-        dense_26 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_25)
-        dense_27 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_26)
-        dense_28 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_27)
-        dense_29 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_28)
-        dense_30 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_29)
-        dense_31 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_30)
-        dense_32 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_31)
+        dense_1  = tf.keras.layers.Dense(units = 384, activation = "tanh")(concat_total)
+        dense_2  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_1)
+        dense_3  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_2)
+        dense_4  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_3)
+        dense_5  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_4)
+        dense_6  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_5)
+        dense_7  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_6)
+        dense_8  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_7)
+        dense_9  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_8)
+        dense_10 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_9)
+        dense_11 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_10)
+        dense_12 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_11)
+        dense_13 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_12)
+        dense_14 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_13)
+        dense_15 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_14)
+        dense_16 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_15)
+        dense_17 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_16)
+        dense_18 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_17)
+        dense_19 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_18)
+        dense_20 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_19)
+        dense_21 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_20)
+        dense_22 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_21)
+        dense_23 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_22)
+        dense_24 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_23)
+        dense_25 = tf.keras.layers.Dense(units = 96, activation = "tanh")(dense_24)
+        dense_26 = tf.keras.layers.Dense(units = 72, activation = "tanh")(dense_25)
+        dense_27 = tf.keras.layers.Dense(units = 48, activation = "tanh")(dense_26)
+        dense_28 = tf.keras.layers.Dense(units = 24, activation = "tanh")(dense_27)
+        dense_29 = tf.keras.layers.Dense(units = 12, activation = "tanh")(dense_28)
+        dense_30 = tf.keras.layers.Dense(units = 6, activation = "tanh")(dense_29)
+        dense_31 = tf.keras.layers.Dense(units = 3, activation = "tanh")(dense_30)
+        dense_32 = tf.keras.layers.Dense(units = 2, activation = "tanh")(dense_31)
+
+
 
         #output layer
         output_layer = tf.keras.layers.Dense(units = 1, activation = "tanh")(dense_32)
@@ -105,20 +107,21 @@ class TetrisAI:
         self.model.fit(
                 x = [board_train, x_train],
                 y = y_train,
-                epochs = int(epochs / 4),
+                epochs = epochs,
                 validation_data = ([board_test, x_test], y_test),
-                batch_size = 32,
+                batch_size = 128,
                 verbose = 1
                 )
-        tf.keras.backend.set_value(self.model.optimizer.lr, learn_rate / 2)
-        self.model.fit(
-                x = [board_train, x_train],
-                y = y_train,
-                epochs = int(epochs / 4) * 3,
-                validation_data = ([board_test, x_test], y_test),
-                batch_size = 32,
-                verbose = 1
-                )
+        #So changing the learning rate causes a memory leak in the keras backend; not sure why but it means I can only really do this once.
+##      tf.keras.backend.set_value(self.model.optimizer.lr, learn_rate / 2)
+##      self.model.fit(
+##              x = [board_train, x_train],
+##              y = y_train,
+##              epochs = int(epochs / 4) * 3,
+##              validation_data = ([board_test, x_test], y_test),
+##              batch_size = 32,
+##              verbose = 1
+##              )
 #       for i in range(epochs):
 #           print("Epoch: {}".format(i))
 #           print("Learning rate: {}".format(learn_rate * (1 - (i / epochs))))
@@ -164,6 +167,7 @@ class TetrisAI:
             prev_state = cur_state
             top_predicted_move = 0
             top_predicted_score = -1000000
+            TetrisAIHelper.print_board(cur_state)
             for j in range(80):
                 predicted_state = TetrisAIHelper.predict_outcome(cur_state, j)
                 if "LOSS" in predicted_state:
@@ -171,7 +175,9 @@ class TetrisAI:
                 score = self.call(
                         np.array(convert_state_to_input(predicted_state))
                         )
-                print("Score for move ", j, ": ", score, sep = "")
+                print("Move: {} Score: {}".format(j, score))
+                TetrisAIHelper.print_board(predicted_state)
+                print("------------------")
                 if score > top_predicted_score:
                     top_predicted_move = j
                     top_predicted_score = score
@@ -214,6 +220,16 @@ class TetrisAIHelper:
 
     def _score(state):
         return state["score"]
+
+    def print_board(state):
+        for i in range(len(state["board"])):
+            for j in range(len(state["board"][i])):
+                if state["board"][i][j] == 0:
+                    print(".", end = " ")
+                else:
+                    print("X", end = " ")
+            print()
+        print()
 
 #   def _get_max_q_value(self, depth, cur_state):
 #       score = self._score(cur_state)
@@ -353,7 +369,7 @@ def main():
     
     mean = np.mean(np.array([xl[256] for xl in x_list]))
     std = np.std(np.array([xl[256] for xl in x_list]))
-    x_list = [(xl - mean) / std for xl in x_list]
+    x_list = [xl[:256] + [((xl[256] - mean) / std)] for xl in x_list]
 
 #convert to numpy array
     print("Converting to numpy array...")
@@ -377,7 +393,7 @@ def main():
     ai.train(x_train, y_train, x_test, y_test, epochs = int(sys.argv[3]), learn_rate = float(sys.argv[4]))
     ai.save(sys.argv[2])
     while True:
-        print("Your AI is ready madam")
+        print("AI is ready to play.")
         input()
         ai.play_tetris()
 
