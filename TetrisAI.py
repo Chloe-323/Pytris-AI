@@ -16,6 +16,9 @@ import pickle
 import tensorflow as tf
 import numpy as np
 
+physical_device_name = tf.config.experimental.list_physical_devices('GPU')[0]
+tf.config.experimental.set_memory_growth(physical_device_name, True)
+
 class TetrisAI: pass
 board_shape = pytris.grid_size
 cnn_input_shape = (1, board_shape[0], board_shape[1], 1)
@@ -38,31 +41,49 @@ class TetrisAI:
         board_input = tf.keras.Input(shape = cnn_input_shape)
         total_input = tf.keras.Input(shape = total_input_size)
         #convolutional layers
-        board_conv = tf.keras.layers.Conv2D(filters = 32, kernel_size = (3, 3), padding = "same", activation = "elu")(board_input)
+        board_conv = tf.keras.layers.Conv2D(filters = 4, kernel_size = (3, 3), padding = "same", activation = "elu")(board_input)
         #concatenate and flatten
         flatten_board = tf.keras.layers.Flatten()(board_conv)
         flatten_total = tf.keras.layers.Flatten()(total_input)
         concat_total = tf.keras.layers.concatenate([flatten_board, flatten_total])
         #dense layers to process
-        dense_1 = tf.keras.layers.Dense(units = 256, activation = "tanh")(concat_total)
-        dense_2 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_1)
-        dense_3 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_2)
-        dense_4 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_3)
-        dense_5 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_4)
-        dense_6 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_5)
-        dense_7 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_6)
-        dense_8 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_7)
-        dense_9 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_8)
-        dense_10 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_9)
-        dense_11 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_10)
-        dense_12 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_11)
-        dense_13 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_12)
-        dense_14 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_13)
-        dense_15 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_14)
-        dense_16 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_15)
+        dense_1  = tf.keras.layers.Dense(units = 102, activation = "tanh")(concat_total)
+        dense_2  = tf.keras.layers.Dense(units = 100, activation = "tanh")(dense_1)
+        dense_3  = tf.keras.layers.Dense(units = 98, activation = "tanh")(dense_2)
+        dense_4  = tf.keras.layers.Dense(units = 96, activation = "tanh")(dense_3)
+        dense_5  = tf.keras.layers.Dense(units = 94, activation = "tanh")(dense_4)
+        dense_6  = tf.keras.layers.Dense(units = 92, activation = "tanh")(dense_5)
+        dense_7  = tf.keras.layers.Dense(units = 90, activation = "tanh")(dense_6)
+        dense_8  = tf.keras.layers.Dense(units = 88, activation = "tanh")(dense_7)
+        dense_9  = tf.keras.layers.Dense(units = 86, activation = "tanh")(dense_8)
+        dense_10 = tf.keras.layers.Dense(units = 84, activation = "tanh")(dense_9)
+        dense_11 = tf.keras.layers.Dense(units = 82, activation = "tanh")(dense_10)
+        dense_12 = tf.keras.layers.Dense(units = 80, activation = "tanh")(dense_11)
+        dense_13 = tf.keras.layers.Dense(units = 78, activation = "tanh")(dense_12)
+        dense_14 = tf.keras.layers.Dense(units = 76, activation = "tanh")(dense_13)
+        dense_15 = tf.keras.layers.Dense(units = 74, activation = "tanh")(dense_14)
+        dense_16 = tf.keras.layers.Dense(units = 72, activation = "tanh")(dense_15)
+        dense_17 = tf.keras.layers.Dense(units = 70, activation = "tanh")(dense_16)
+        dense_18 = tf.keras.layers.Dense(units = 68, activation = "tanh")(dense_17)
+        dense_19 = tf.keras.layers.Dense(units = 66, activation = "tanh")(dense_18)
+        dense_20 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_19)
+        dense_21 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_20)
+        dense_22 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_21)
+        dense_23 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_22)
+        dense_24 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_23)
+        dense_25 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_24)
+        dense_26 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_25)
+        dense_27 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_26)
+        dense_28 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_27)
+        dense_29 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_28)
+        dense_30 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_29)
+        dense_31 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_30)
+        dense_32 = tf.keras.layers.Dense(units = 64, activation = "tanh")(dense_31)
 
         #output layer
-        output_layer = tf.keras.layers.Dense(units = 1, activation = "tanh")(dense_16)
+        output_layer = tf.keras.layers.Dense(units = 1, activation = "tanh")(dense_32)
+
+
         model = tf.keras.models.Model(
                 inputs = [board_input, total_input],
                 outputs = output_layer,
@@ -76,25 +97,42 @@ class TetrisAI:
         self.model.compile(
                 optimizer = tf.keras.optimizers.Adam(learning_rate = learn_rate),
                 loss = "mean_squared_error",
-                metrics = ["mean_absolute_error"]
+                metrics = ["mean_absolute_error", "mean_squared_error"]
                 )
         #board is first 220 elements
         board_train = x_train[:,:220].reshape(x_train.shape[0],1, board_shape[0], board_shape[1], 1)
         board_test = x_test[:,:220].reshape(x_test.shape[0],1, board_shape[0], board_shape[1], 1)
-        for i in range(epochs):
-            print("Epoch: {}".format(i))
-            print("Learning rate: {}".format(learn_rate * (1 - (i / epochs))))
-            self.model.fit(
-                    x = [board_train, x_train],
-                    y = y_train,
-                    epochs = 1,
-                    batch_size = 1024,
-                    validation_data = (
-                        [board_test, x_test],
-                        y_test
-                        )
-                    )
-            tf.keras.backend.set_value(self.model.optimizer.lr, learn_rate * (1 - i/epochs))
+        self.model.fit(
+                x = [board_train, x_train],
+                y = y_train,
+                epochs = int(epochs / 4),
+                validation_data = ([board_test, x_test], y_test),
+                batch_size = 32,
+                verbose = 1
+                )
+        tf.keras.backend.set_value(self.model.optimizer.lr, learn_rate / 2)
+        self.model.fit(
+                x = [board_train, x_train],
+                y = y_train,
+                epochs = int(epochs / 4) * 3,
+                validation_data = ([board_test, x_test], y_test),
+                batch_size = 32,
+                verbose = 1
+                )
+#       for i in range(epochs):
+#           print("Epoch: {}".format(i))
+#           print("Learning rate: {}".format(learn_rate * (1 - (i / epochs))))
+#           self.model.fit(
+#                   x = [board_train, x_train],
+#                   y = y_train,
+#                   epochs = 1,
+#                   batch_size = 256,
+#                   validation_data = (
+#                       [board_test, x_test],
+#                       y_test
+#                       )
+#                   )
+#           tf.keras.backend.set_value(self.model.optimizer.lr, learn_rate * (1 - i/epochs))
         return
 
     def call(self, x):
@@ -306,10 +344,10 @@ def main():
 
 #fit the data
     print("Fitting data...")
-    mean = np.mean(y_list)
-    std = np.std(y_list)
-#fit such that mean is 0 and std is 1
-    y_list = [(y - mean) / std for y in y_list]
+#fit such that max is 1 and min is -1
+    max_y = max(y_list)
+    min_y = min(y_list)
+    y_list = [(y - min_y) / (max_y - min_y) for y in y_list]
 
     ######
     
