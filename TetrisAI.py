@@ -23,7 +23,7 @@ g = tf.random.Generator.from_non_deterministic_state()
 num_iter = 3000
 global_timer = time.monotonic()
 threads = 12
-total_input_size = 256
+total_input_size = 257
 
 class TetrisAI:
     def __init__(self, model_path = None):
@@ -38,19 +38,31 @@ class TetrisAI:
         board_input = tf.keras.Input(shape = cnn_input_shape)
         total_input = tf.keras.Input(shape = total_input_size)
         #convolutional layers
-        board_conv = tf.keras.layers.Conv2D(filters = 32, kernel_size = (3, 3), padding = "same", activation = "relu")(board_input)
+        board_conv = tf.keras.layers.Conv2D(filters = 32, kernel_size = (3, 3), padding = "same", activation = "elu")(board_input)
         #concatenate and flatten
         flatten_board = tf.keras.layers.Flatten()(board_conv)
         flatten_total = tf.keras.layers.Flatten()(total_input)
         concat_total = tf.keras.layers.concatenate([flatten_board, flatten_total])
         #dense layers to process
-        dense_layer_1 = tf.keras.layers.Dense(units = 128, activation = "relu")(concat_total)
-        dense_layer_2 = tf.keras.layers.Dense(units = 128, activation = "relu")(dense_layer_1)
-        dense_layer_3 = tf.keras.layers.Dense(units = 64, activation = "relu")(dense_layer_2)
-        dense_layer_3 = tf.keras.layers.Dense(units = 64, activation = "relu")(dense_layer_2)
-        dense_layer_4 = tf.keras.layers.Dense(units = 64, activation = "relu")(dense_layer_3)
+        dense_1 = tf.keras.layers.Dense(units = 256, activation = "tanh")(concat_total)
+        dense_2 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_1)
+        dense_3 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_2)
+        dense_4 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_3)
+        dense_5 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_4)
+        dense_6 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_5)
+        dense_7 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_6)
+        dense_8 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_7)
+        dense_9 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_8)
+        dense_10 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_9)
+        dense_11 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_10)
+        dense_12 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_11)
+        dense_13 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_12)
+        dense_14 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_13)
+        dense_15 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_14)
+        dense_16 = tf.keras.layers.Dense(units = 256, activation = "tanh")(dense_15)
+
         #output layer
-        output_layer = tf.keras.layers.Dense(units = 1, activation = "tanh")(dense_layer_4)
+        output_layer = tf.keras.layers.Dense(units = 1, activation = "tanh")(dense_16)
         model = tf.keras.models.Model(
                 inputs = [board_input, total_input],
                 outputs = output_layer,
@@ -69,7 +81,20 @@ class TetrisAI:
         #board is first 220 elements
         board_train = x_train[:,:220].reshape(x_train.shape[0],1, board_shape[0], board_shape[1], 1)
         board_test = x_test[:,:220].reshape(x_test.shape[0],1, board_shape[0], board_shape[1], 1)
-        self.model.fit([board_train, x_train], y_train, epochs = epochs, validation_data = ([board_test, x_test], y_test))
+        for i in range(epochs):
+            print("Epoch: {}".format(i))
+            print("Learning rate: {}".format(learn_rate * (1 - (i / epochs))))
+            self.model.fit(
+                    x = [board_train, x_train],
+                    y = y_train,
+                    epochs = 1,
+                    batch_size = 1024,
+                    validation_data = (
+                        [board_test, x_test],
+                        y_test
+                        )
+                    )
+            tf.keras.backend.set_value(self.model.optimizer.lr, learn_rate * (1 - i/epochs))
         return
 
     def call(self, x):
@@ -257,12 +282,13 @@ def convert_state_to_input(state):
         output += onehot(state["queue"][i])
     #swapped
     output.append(state["swapped"])
+    output.append(state["delta_score"])
     return output
 
 
 def main():
-    if len(sys.argv) != 4:
-        print("Usage:", sys.argv[0], "<training data file> <save neural network file> <epochs>")
+    if len(sys.argv) != 5:
+        print("Usage:", sys.argv[0], "<training data file> <save neural network file> <epochs> <learn rate>")
         exit(1)
     print("Data source:", sys.argv[1])
     print("Saved model location:", sys.argv[2])
@@ -285,6 +311,12 @@ def main():
 #fit such that mean is 0 and std is 1
     y_list = [(y - mean) / std for y in y_list]
 
+    ######
+    
+    mean = np.mean(np.array([xl[256] for xl in x_list]))
+    std = np.std(np.array([xl[256] for xl in x_list]))
+    x_list = [(xl - mean) / std for xl in x_list]
+
 #convert to numpy array
     print("Converting to numpy array...")
     x_array = np.array(x_list)
@@ -304,7 +336,7 @@ def main():
 
 
     ai = TetrisAI()
-    ai.train(x_train, y_train, x_test, y_test, epochs = int(sys.argv[3]))
+    ai.train(x_train, y_train, x_test, y_test, epochs = int(sys.argv[3]), learn_rate = float(sys.argv[4]))
     ai.save(sys.argv[2])
     while True:
         print("Your AI is ready madam")

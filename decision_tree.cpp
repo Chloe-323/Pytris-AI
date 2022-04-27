@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <fstream>
 #include <sstream>
+#include <iomanip>
 
 using namespace std;
 
@@ -115,6 +116,7 @@ tetromino* tetrominos[] = {&tetr_I, &tetr_J, &tetr_L, &tetr_O, &tetr_S, &tetr_T,
 struct state {
     int grid[22][10];
     int score;
+    int delta_score;
     tetromino current;
     tetromino held;
     tetromino next[3];
@@ -145,6 +147,7 @@ struct state initial_state = {
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     },
+    0,
     0,
     tetr_T,
     tetr_null,
@@ -212,10 +215,10 @@ void print_state(state s, int tabs = 0) {
 
 int grade_state(state &s, int method = 1) {
     if(s.lost){
-        return -10000;
+        return -801; //best possible score is 801, and we want the mean to be ~0 so it makes sense that this is the worst possible score
     }
     if(method == 0){
-        return s.score;
+        return s.delta_score;
     }
 
     int grade = 0;
@@ -246,14 +249,14 @@ int grade_state(state &s, int method = 1) {
     }
     switch (method) {
         case 0:
-            grade = s.score;
+            grade = s.delta_score;
             break;
         case 1:
-            grade = s.score - bumpiness - (4 * holes);
+            grade = s.delta_score - 2*(bumpiness - (4 * holes));
             break;
         case 2:
             //score - bumpiness
-            grade = s.score - bumpiness;
+            grade = s.delta_score - 3 * (bumpiness);
             break;
         default:
             grade = s.score - bumpiness - (4 * holes);
@@ -399,9 +402,11 @@ state predict_outcome(state s, tetromino tetr, action a) {
     }
     new_state.next[2] = *tetrominos[rand() % 7];
     new_state.score += 1; //not identical to the python code, but fulfills the same goal
-    new_state.score += rows_cleared * rows_cleared * 10; //not identical to the python code, but fulfills the same goal
+    new_state.score += rows_cleared * rows_cleared * 100; //not identical to the python code, but fulfills the same goal
+    new_state.delta_score = 1 + rows_cleared * rows_cleared * 100;
     if (placed == false) {
-        new_state.score = -1;
+        new_state.score = -100;
+        new_state.delta_score = -100;
         new_state.lost = true;
     }
     return new_state;
@@ -503,6 +508,7 @@ class DecisionTreeNode {
                 return a->q_value > b->q_value;
             });
             int cutoff = children_vec[selection_range - 1]->q_value;
+            children_vec.shrink_to_fit();
             for(int i = 0; i < num_children; i++){
                 if(children_vec[i]->q_value >= cutoff){
                     children_vec[i]->generate_children();
@@ -510,6 +516,7 @@ class DecisionTreeNode {
                 }else{
                     delete children_vec[i]; //memory optimization
                     children_vec[i] = nullptr;
+                    children_vec.shrink_to_fit();
                 }
             }
             return num_children;
@@ -665,6 +672,7 @@ std::string json_state(state s){
     ss << ",\"queue\":[" << s.next[0].type << "," << s.next[1].type << "," << s.next[2].type << "]";
     ss << ",\"swapped\":" << "false";
     ss << ",\"held_block\":" << s.held.type;
+    ss << ",\"delta_score\":" << s.delta_score;
     ss << "}'";
     return ss.str();
 }
@@ -678,10 +686,9 @@ void train_to_file(int games, int depth, int selection_range, float gamma, std::
         if(i % 50 == 0){
             cout << "========================================================" << endl;
             cout << "Game " << i << " of " << games << endl;
-            cout << "Total time: " << int(double(clock() - begin) / CLOCKS_PER_SEC) / 3600 << ":" << int(double(clock() - begin) / CLOCKS_PER_SEC / 60) % 60 << ":" << int(double(clock() - begin) / CLOCKS_PER_SEC) % 60 << endl;
+            cout << "Total time elapsed: " << std::setw(5) << int(double(clock() - begin) / CLOCKS_PER_SEC / 3600) << ":" << std::setw(2) << int(double(clock() - begin) / CLOCKS_PER_SEC / 60) % 60 << ":" << int(double(clock() - begin) / CLOCKS_PER_SEC) % 60 << endl;
             cout << "Latest iteration time: " << double(clock() - latest_iter) / CLOCKS_PER_SEC << " seconds." << endl;
             cout << "Percent complete: " << (double(i) / games) * 100 << "%" << endl;
-            cout << "Estimated time remaining: " << int((double(clock() - begin) / CLOCKS_PER_SEC) / ((double(i) / games) * 100) * 100 / 3600) << ":" << int((double(clock() - begin) / CLOCKS_PER_SEC) / ((double(i) / games) * 100) * 100 / 60) % 60 << ":" << int((double(clock() - begin) / CLOCKS_PER_SEC) / ((double(i) / games) * 100) * 100) % 60 << endl;
         }
         latest_iter = clock();
         //alternate between random games and dt games
