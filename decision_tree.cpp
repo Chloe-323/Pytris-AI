@@ -211,6 +211,9 @@ void print_state(state s, int tabs = 0) {
 }
 
 int grade_state(state &s, int method = 1) {
+    if(s.lost){
+        return -10000;
+    }
     if(method == 0){
         return s.score;
     }
@@ -644,7 +647,7 @@ state random_state(int depth){
 std::string json_state(state s){
     std::stringstream ss;
     ss << "'{\"board\":[";
-    for(int i = 0; i < 20; i++){
+    for(int i = 0; i < 22; i++){
         ss << "[";
         for(int j = 0; j < 10; j++){
             ss << s.grid[i][j];
@@ -653,7 +656,7 @@ std::string json_state(state s){
             }
         }
         ss << "]";
-        if(i != 19){
+        if(i != 21){
             ss << ",";
         }
     }
