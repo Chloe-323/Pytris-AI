@@ -1,4 +1,16 @@
 import sys
+if len(sys.argv) < 2 or sys.argv[1] == "--help" :
+    print("Usage:", sys.argv[0], "-s|l <training data file> <save neural network file> <epochs> <learn rate>")
+    print("-s: train neural network")
+    print("-l: load neural network")
+    print("<training data file>: file containing training data")
+    print("<save neural network file>: file to save neural network to")
+    print("<epochs>: number of epochs to train neural network for")
+    print("<learn rate>: learning rate for neural network")
+    exit()
+
+
+
 sys.path.insert(1, "Pytris") #A bit hacky but good enough for now
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
@@ -12,6 +24,7 @@ import uuid
 import random
 import IPython
 import pickle
+from sklearn.preprocessing import MinMaxScaler
 
 import tensorflow as tf
 import numpy as np
@@ -34,60 +47,40 @@ class TetrisAI:
             self.model = self.build_model()
         else:
             self.model = tf.keras.models.load_model(model_path)
+            print(self.model.summary())
         return
 
     def build_model(self):
         #input layer
-        board_input = tf.keras.Input(shape = cnn_input_shape)
-        total_input = tf.keras.Input(shape = total_input_size)
+        board_input = tf.keras.Input(shape = (board_shape[0], board_shape[1], 1))
+#        total_input = tf.keras.Input(shape = total_input_size)
+        remainder_input = tf.keras.Input(shape = (total_input_size - board_shape[0] * board_shape[1],))
         #convolutional layers
-        board_conv = tf.keras.layers.Conv2D(filters = 4, kernel_size = (3, 3), padding = "same", activation = "elu")(board_input)
+        board_conv_1 = tf.keras.layers.Conv2D(filters = 32, kernel_size = (5, 5), padding = "same", activation = "relu")(board_input)
+        board_conv_2 = tf.keras.layers.Conv2D(filters = 64, kernel_size = (3, 3), padding = "same", activation = "relu")(board_conv_1)
+        board_maxpool_1 = tf.keras.layers.MaxPool2D(pool_size = (2, 2), strides = (2, 2))(board_conv_2)
+        board_conv_3 = tf.keras.layers.Conv2D(filters = 64, kernel_size = (3, 3), padding = "same", activation = "relu")(board_maxpool_1)
+        board_maxpool_2 = tf.keras.layers.MaxPool2D(pool_size = (2, 2), strides = (2, 2))(board_conv_3)
+#       board_conv_4 = tf.keras.layers.Conv2D(filters = 32, kernel_size = (1, 1), padding = "same", activation = "elu")(board_conv_3)
+#       board_conv_5 = tf.keras.layers.Conv2D(filters = 32, kernel_size = (1, 1), padding = "same", activation = "elu")(board_conv_4)
         #concatenate and flatten
-        flatten_board = tf.keras.layers.Flatten()(board_conv)
-        flatten_total = tf.keras.layers.Flatten()(total_input)
-        concat_total = tf.keras.layers.concatenate([flatten_board, flatten_total])
+        flatten_board = tf.keras.layers.Flatten()(board_maxpool_2)
+#        flatten_total = tf.keras.layers.Flatten()(total_input)
+        flatten_remainder = tf.keras.layers.Flatten()(remainder_input)
+        concat_input = tf.keras.layers.concatenate([flatten_board, flatten_remainder])
         #dense layers to process
-        dense_1  = tf.keras.layers.Dense(units = 384, activation = "tanh")(concat_total)
-        dense_2  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_1)
-        dense_3  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_2)
-        dense_4  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_3)
-        dense_5  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_4)
-        dense_6  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_5)
-        dense_7  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_6)
-        dense_8  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_7)
-        dense_9  = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_8)
-        dense_10 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_9)
-        dense_11 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_10)
-        dense_12 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_11)
-        dense_13 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_12)
-        dense_14 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_13)
-        dense_15 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_14)
-        dense_16 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_15)
-        dense_17 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_16)
-        dense_18 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_17)
-        dense_19 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_18)
-        dense_20 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_19)
-        dense_21 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_20)
-        dense_22 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_21)
-        dense_23 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_22)
-        dense_24 = tf.keras.layers.Dense(units = 192, activation = "tanh")(dense_23)
-        dense_25 = tf.keras.layers.Dense(units = 96, activation = "tanh")(dense_24)
-        dense_26 = tf.keras.layers.Dense(units = 72, activation = "tanh")(dense_25)
-        dense_27 = tf.keras.layers.Dense(units = 48, activation = "tanh")(dense_26)
-        dense_28 = tf.keras.layers.Dense(units = 24, activation = "tanh")(dense_27)
-        dense_29 = tf.keras.layers.Dense(units = 12, activation = "tanh")(dense_28)
-        dense_30 = tf.keras.layers.Dense(units = 6, activation = "tanh")(dense_29)
-        dense_31 = tf.keras.layers.Dense(units = 3, activation = "tanh")(dense_30)
-        dense_32 = tf.keras.layers.Dense(units = 2, activation = "tanh")(dense_31)
-
+        dense_0 = tf.keras.layers.Dense(units = 257, activation = tf.keras.layers.LeakyReLU(alpha=0.1))(concat_input)
+        dense_1 = tf.keras.layers.Dense(units = 32,  activation = tf.keras.layers.LeakyReLU(alpha=0.1))(dense_0)
+        dense_2 = tf.keras.layers.Dense(units = 32,  activation = tf.keras.layers.LeakyReLU(alpha=0.1))(dense_1)
+        dense_4 = tf.keras.layers.Dense(units = 13,  activation = tf.keras.layers.LeakyReLU(alpha=0.1))(dense_2)
 
 
         #output layer
-        output_layer = tf.keras.layers.Dense(units = 1, activation = "tanh")(dense_32)
+        output_layer = tf.keras.layers.Dense(units = 1, activation = "linear")(dense_4)
 
 
         model = tf.keras.models.Model(
-                inputs = [board_input, total_input],
+                inputs = [board_input, remainder_input],
                 outputs = output_layer,
                 name = "Tetris_AI"
                 )
@@ -99,19 +92,28 @@ class TetrisAI:
         self.model.compile(
                 optimizer = tf.keras.optimizers.Adam(learning_rate = learn_rate),
                 loss = "mean_squared_error",
-                metrics = ["mean_absolute_error", "mean_squared_error"]
+                metrics = ["mean_absolute_error"]
                 )
         #board is first 220 elements
-        board_train = x_train[:,:220].reshape(x_train.shape[0],1, board_shape[0], board_shape[1], 1)
-        board_test = x_test[:,:220].reshape(x_test.shape[0],1, board_shape[0], board_shape[1], 1)
-        self.model.fit(
-                x = [board_train, x_train],
-                y = y_train,
-                epochs = epochs,
-                validation_data = ([board_test, x_test], y_test),
-                batch_size = 128,
-                verbose = 1
-                )
+        board_train = x_train[:,:220].reshape(x_train.shape[0],board_shape[0], board_shape[1], 1)
+        board_test = x_test[:,:220].reshape(x_test.shape[0],board_shape[0], board_shape[1], 1)
+        remainder_train = x_train[:,220:]
+        remainder_test = x_test[:,220:]
+        try:
+            self.model.fit(
+                    x = [board_train, remainder_train],
+                    y = y_train,
+                    epochs = epochs,
+                    validation_data = ([board_test, remainder_test], y_test),
+                    batch_size = 2048,
+                    verbose = 1
+                    )
+        except KeyboardInterrupt:
+            print("Training interrupted")
+            return
+        except Exception as e:
+            print(e)
+            return
         #So changing the learning rate causes a memory leak in the keras backend; not sure why but it means I can only really do this once.
 ##      tf.keras.backend.set_value(self.model.optimizer.lr, learn_rate / 2)
 ##      self.model.fit(
@@ -139,12 +141,14 @@ class TetrisAI:
         return
 
     def call(self, x):
-        board_input = x[:220].reshape(-1, 1, board_shape[0], board_shape[1], 1)
+        board_input = x[:220].reshape(-1, board_shape[0], board_shape[1], 1)
         board_tensor = tf.convert_to_tensor(board_input)
+        remainder_input = x[220:]
         x_tensor = tf.convert_to_tensor(x.reshape(-1, total_input_size))
+        remainder_tensor = tf.convert_to_tensor(remainder_input.reshape(-1, len(remainder_input)))
 
         output_tensor = self.model(
-                [board_tensor, x_tensor],
+                [board_tensor, remainder_tensor],
                 training = False
                 )
         return output_tensor.numpy()[0][0]
@@ -167,7 +171,6 @@ class TetrisAI:
             prev_state = cur_state
             top_predicted_move = 0
             top_predicted_score = -1000000
-            TetrisAIHelper.print_board(cur_state)
             for j in range(80):
                 predicted_state = TetrisAIHelper.predict_outcome(cur_state, j)
                 if "LOSS" in predicted_state:
@@ -175,13 +178,13 @@ class TetrisAI:
                 score = self.call(
                         np.array(convert_state_to_input(predicted_state))
                         )
-                print("Move: {} Score: {}".format(j, score))
-                TetrisAIHelper.print_board(predicted_state)
-                print("------------------")
                 if score > top_predicted_score:
                     top_predicted_move = j
                     top_predicted_score = score
-            print("Top move:", top_predicted_move)
+            #write to log file
+            with open("log.txt", "a") as f:
+                f.write("{}||{}\n".format(json.dumps(cur_state), top_predicted_move))
+
             keypress_list = TetrisAIHelper.process_outputs(top_predicted_move, ff = headless)
             for keypress in keypress_list:
                 event = pygame.event.Event(pygame.KEYDOWN, key = keypress)
@@ -212,8 +215,6 @@ class TetrisAIHelper:
         elif command % 10 >= 5: #56789 = columns to the right
             keypress_list += [pygame.K_RIGHT for i in range((command % 10) - 4)]
 
-        if not ff:
-            print("normal speed")
         if ff:
             keypress_list.append(pygame.K_DOWN) #No T-spins or fancy cat stuff like that yet
         return keypress_list
@@ -339,43 +340,55 @@ def convert_state_to_input(state):
     output.append(state["delta_score"])
     return output
 
-
-def main():
-    if len(sys.argv) != 5:
-        print("Usage:", sys.argv[0], "<training data file> <save neural network file> <epochs> <learn rate>")
-        exit(1)
-    print("Data source:", sys.argv[1])
-    print("Saved model location:", sys.argv[2])
-    print("Number of epochs:", sys.argv[3])
+def train(data_source, model_path, epochs = 10, learn_rate = 0.0001):
+    timer = time.monotonic()
+    print("Data source:", data_source)
+    print("Saved model location:", model_path) #model_path
+    print("Number of epochs:", epochs) #epochs
+    print("Learning rate:", learn_rate) #learn_rate
 #load the data
     print("Loading data...")
     x_list = []
     y_list = []
-    f = open(sys.argv[1], "r")
+    f = open(data_source, "r")
     lines = f.readlines()
     random.shuffle(lines)
     line_split = [line.split("||") for line in lines]
+    lines = None #free up memory
     x_list = [convert_state_to_input(json.loads(ls[0][1:-1])) for ls in line_split]
     y_list = [float(ls[1]) for ls in line_split]
-
-#fit the data
-    print("Fitting data...")
-#fit such that max is 1 and min is -1
-    max_y = max(y_list)
-    min_y = min(y_list)
-    y_list = [(y - min_y) / (max_y - min_y) for y in y_list]
-
-    ######
-    
-    mean = np.mean(np.array([xl[256] for xl in x_list]))
-    std = np.std(np.array([xl[256] for xl in x_list]))
-    x_list = [xl[:256] + [((xl[256] - mean) / std)] for xl in x_list]
+    line_split = None #free up memory
+    f.close()
 
 #convert to numpy array
     print("Converting to numpy array...")
+#    x_array = np.array([x[:-1] for x in x_list])
     x_array = np.array(x_list)
-    y_array = np.array(y_list)
+    x_list = None #free up memory
+    y_array = np.array(y_list).reshape(-1, 1)
+    y_list = None #free up memory
     print("Converted.")
+
+
+#fit the data
+#   scaler = MinMaxScaler(feature_range=(-1, 1))
+#   print("Fitting data...")
+#   scaler.fit(y_array)
+#   y_array = scaler.transform(y_array)
+#   scaler = MinMaxScaler(feature_range=(0, 1))
+#   scaler.fit(x_array)
+#   x_array = scaler.transform(x_array)
+#   print("Fitted.")
+    print("Average y:", np.mean(y_array))
+    print("Average delta score:", np.mean(x_array[:, -1]))
+
+    y_array = y_array.reshape(-1)
+
+
+    ######
+    
+#fit last part of X (the Q value)
+
 
 
 #split into training and testing data
@@ -389,12 +402,30 @@ def main():
     print("Testing data: " + str(len(x_test)))
 
 
-    ai = TetrisAI()
-    ai.train(x_train, y_train, x_test, y_test, epochs = int(sys.argv[3]), learn_rate = float(sys.argv[4]))
-    ai.save(sys.argv[2])
+
+    ai = None
+    #check if model file exists
+    if os.path.exists(model_path):
+        print("Loading model...")
+        ai = TetrisAI(model_path)
+        print("Model loaded.")
+    else:
+        print("Creating new model...")
+        ai = TetrisAI()
+        print("Model created.")
+    print("Set-up time: " + str(time.monotonic() - timer)[:4] + " seconds.")
+    ai.train(x_train, y_train, x_test, y_test, epochs = int(epochs), learn_rate = float(learn_rate))
+    ai.save(model_path)
     while True:
         print("AI is ready to play.")
         input()
         ai.play_tetris()
 
-main()
+def load_and_play(model_path):
+    ai = TetrisAI(model_path)
+    ai.play_tetris()
+
+if "-l" in sys.argv:
+    load_and_play(sys.argv[-1])
+if "-s" in sys.argv:
+    train(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])

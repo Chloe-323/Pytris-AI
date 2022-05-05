@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <math.h>
 
 using namespace std;
 
@@ -213,7 +214,7 @@ void print_state(state s, int tabs = 0) {
     }
 }
 
-int grade_state(state &s, int method = 1) {
+float grade_state(state &s, int method = 1) {
     if(s.lost){
         return -801; //best possible score is 801, and we want the mean to be ~0 so it makes sense that this is the worst possible score
     }
@@ -241,6 +242,7 @@ int grade_state(state &s, int method = 1) {
     }
     for (int i = 0; i < 10; i++) {
         bumpiness += abs(heights[i] - heights[(i + 1) % 10]);
+        bumpiness += abs(heights[i] - heights[(i + 9) % 10]);
     }
     //count holes
     for (int i = 0; i < 22; i++) {
@@ -270,27 +272,26 @@ int grade_state(state &s, int method = 1) {
 //  cout << "Holes: " << holes << endl;
 //  cout << "Empty rows: " << empty_rows << endl;
 //  cout << "Delta score: " << s.delta_score << endl;
+    grade = s.delta_score * 2;
     switch (method) {
         case 0:
-            grade = s.delta_score;
+            grade -= bumpiness;
+            grade -= holes;
+            grade += empty_rows;
             break;
         case 1:
-//          cout << "Grade method: Delta score + empty rows - 5 * (bumpiness - (10 * holes))" << endl;
-//          cout << "Grade: " << s.delta_score + empty_rows - 5 * (bumpiness + (10 * holes))<< endl;
-            grade = s.delta_score + empty_rows - 5*(bumpiness + (10 * holes));
+            grade -= 2 * bumpiness;
+            grade -= 27 * holes;
+            grade += 1 * empty_rows;
+//          cout << "Grade: " << grade << endl;
             break;
         case 2:
-            //score - bumpiness
-            grade = s.delta_score - 3 * (bumpiness);
             break;
         case 3:
-            grade = s.delta_score - 2*(bumpiness - (4 * holes));
-            break;
         default:
-            grade = s.score - bumpiness - (4 * holes);
             break;
     }
-    return grade;
+    return float(grade);
 }
 
 state predict_outcome(state s, tetromino tetr, action a) {
@@ -463,6 +464,43 @@ struct action get_action(int action_num) {
     return a;
 }
 
+std::string json_state(state s){
+    std::stringstream ss;
+    ss << "'{\"board\":[";
+    for(int i = 0; i < 22; i++){
+        ss << "[";
+        for(int j = 0; j < 10; j++){
+            ss << s.grid[i][j];
+            if(j != 9){
+                ss << ",";
+            }
+        }
+        ss << "]";
+        if(i != 21){
+            ss << ",";
+        }
+    }
+    //current type
+    ss << "],\"cur_block\":" << s.current.type;
+    ss << ",\"queue\":[" << s.next[0].type << "," << s.next[1].type << "," << s.next[2].type << "]";
+    ss << ",\"swapped\":" << "false";
+    ss << ",\"held_block\":" << s.held.type;
+    ss << ",\"delta_score\":" << s.delta_score;
+    ss << "}'";
+    return ss.str();
+}
+
+bool is_duplicate_state(const state& s1, const state& s2){
+    for(int i = 0; i < 22; i++){
+        for(int j = 0; j < 10; j++){
+            if(s1.grid[i][j] != s2.grid[i][j]){
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 class DecisionTreeNode {
     public:
         int depth;
@@ -521,7 +559,8 @@ class DecisionTreeNode {
                     if(child == nullptr){
                         continue;
                     }
-                    if(child->current_state.grid == predicted_state.grid){
+                    //TODO: this does not work, but if I fix it it causes a segfault. Will leave it as is for now, and remove dupes in post-processing
+                    if(is_duplicate_state(child->current_state, predicted_state)){
                         is_duplicate = true;
                         break;
                     }
@@ -531,11 +570,15 @@ class DecisionTreeNode {
                     num_children += 1;
                 }
             }
-            //sort children by q_value
+            //sort children by q_value from highest to lowest
             sort(children_vec.begin(), children_vec.end(), [](DecisionTreeNode *a, DecisionTreeNode *b) {
                 return a->q_value > b->q_value;
             });
-            int cutoff = children_vec[selection_range - 1]->q_value;
+            int cutoff = -100000;
+            if(num_children > selection_range){ //if there are more children than the selection range, then only select the top selection_range
+                cutoff = children_vec[selection_range - 1]->q_value;
+            }
+
             children_vec.shrink_to_fit();
             for(int i = 0; i < num_children; i++){
                 if(children_vec[i]->q_value >= cutoff){
@@ -550,21 +593,32 @@ class DecisionTreeNode {
             return num_children;
         }
 
+        void save_to_file(ofstream &file){
+            file << json_state(current_state) << "||" << q_value << endl;
+            //Saving children would pollute the dataset with bad Q values
+        }
+
         DecisionTreeNode *best_action(){
-            int best_action_num = 0;
+//          cout << "best action method" << endl;
             float best_q_value = -1000000;
             DecisionTreeNode *best_node = nullptr;
             for(auto child : children_vec){
+//              cout << "best_q_value: " << best_q_value << endl;
                 if(child == nullptr){
                     continue;
                 }
                 if(child->q_value > best_q_value){
+//                    cout << child->q_value << " > " << best_q_value << endl;
                     best_q_value = child->q_value;
                     best_node = child;
+//                  cout << "new best node: " << best_q_value << " should be " << child->q_value << endl;
                 }
             }
+//          cout << "best node: " << best_node->q_value << endl;
             return best_node;
         }
+
+
 
         bool operator<(const DecisionTreeNode &other) const {
             return this->q_value < other.q_value;
@@ -623,6 +677,15 @@ class DecisionTree{
             }
             cout << "Tree walked in " << double(clock() - begin) / CLOCKS_PER_SEC << " seconds." << endl;
         }
+        void save_to_file(ofstream &file){
+            this->root->save_to_file(file);
+            for(auto child : this->root->children_vec){
+                if(child == nullptr){
+                    continue;
+                }
+                child->save_to_file(file);
+            }
+        }
         state best_state(){
             DecisionTreeNode *cur_node = root;
             for(int i = 0; i < depth; i++){
@@ -671,7 +734,7 @@ class DecisionTree{
 //  }
 ////////////////////////////////////////////////////////////////////////////////
 
-state random_state(int depth){
+state new_random_state(int depth){
     state s = initial_state;
     for(int i = 0; i < depth; i++){
         s = predict_outcome(s, s.current, get_action(rand() % 80));
@@ -679,30 +742,9 @@ state random_state(int depth){
     return s;
 }
 
-std::string json_state(state s){
-    std::stringstream ss;
-    ss << "'{\"board\":[";
-    for(int i = 0; i < 22; i++){
-        ss << "[";
-        for(int j = 0; j < 10; j++){
-            ss << s.grid[i][j];
-            if(j != 9){
-                ss << ",";
-            }
-        }
-        ss << "]";
-        if(i != 21){
-            ss << ",";
-        }
-    }
-    //current type
-    ss << "],\"cur_block\":" << s.current.type;
-    ss << ",\"queue\":[" << s.next[0].type << "," << s.next[1].type << "," << s.next[2].type << "]";
-    ss << ",\"swapped\":" << "false";
-    ss << ",\"held_block\":" << s.held.type;
-    ss << ",\"delta_score\":" << s.delta_score;
-    ss << "}'";
-    return ss.str();
+state randomize(state s){
+    s = predict_outcome(s, s.current, get_action(rand() % 80));
+    return s;
 }
 
 void train_to_file(int games, int depth, int selection_range, float gamma, std::string filename){
@@ -711,34 +753,31 @@ void train_to_file(int games, int depth, int selection_range, float gamma, std::
     clock_t begin = clock();
     clock_t latest_iter = clock();
     for(int i = 1; i < games + 1; i++){
-        if(i % 50 == 0){
+            /*
             cout << "========================================================" << endl;
             cout << "Game " << i << " of " << games << endl;
             cout << "Total time elapsed: " << std::setw(5) << int(double(clock() - begin) / CLOCKS_PER_SEC / 3600) << ":" << std::setw(2) << int(double(clock() - begin) / CLOCKS_PER_SEC / 60) % 60 << ":" << int(double(clock() - begin) / CLOCKS_PER_SEC) % 60 << endl;
             cout << "Latest iteration time: " << double(clock() - latest_iter) / CLOCKS_PER_SEC << " seconds." << endl;
             cout << "Percent complete: " << (double(i) / games) * 100 << "%" << endl;
-        }
+            */
+        cout << "\rGame " << i << " of " << games << " | " << std::setfill('0') << std::setw(5) << int(double(clock() - begin) / CLOCKS_PER_SEC / 3600) << ":" << std::setw(2) << int(double(clock() - begin) / CLOCKS_PER_SEC / 60) % 60 << ":" << int(double(clock() - begin) / CLOCKS_PER_SEC) % 60 << " | " << std::setw(2) << double(clock() - latest_iter) / CLOCKS_PER_SEC << " seconds | " << std::setw(2) << (double(i) / games) * 100 << "%";
+        cout.flush();
         latest_iter = clock();
         //alternate between random games and dt games
-        state s;
-        if(i % 2 == 0){
-            s = random_state(rand() % 5 + 10);
-        }else{
-            DecisionTree *nearsighted_dt = new DecisionTree(initial_state, 1, 10, 0.7);
-            for(int j = 0; j < rand() % 5 + 10; j++){
-                s = nearsighted_dt->best_state();
-                delete nearsighted_dt;
-                nearsighted_dt = new DecisionTree(s, 1, 10, 0.7);
+        state s = initial_state;
+        for(int j = 0; j < rand() % 40 + 5; j++){
+            bool is_random = (rand() % 50) < (i % 50); //get a good spread between good and bad starting positions.
+            if(is_random){
+                s = randomize(s);
             }
-            delete nearsighted_dt;
+            else{
+                DecisionTree *nearsighted_dt = new DecisionTree(s, 2, 10, gamma);
+                s = predict_outcome(s, s.current, get_action(nearsighted_dt->best_action()));
+                delete nearsighted_dt;
+            }
         }
         DecisionTree *dt = new DecisionTree(s, depth, selection_range, gamma);
-        for(int j = 0; j < depth; j++){
-            s = dt->best_state();
-            delete dt;
-            dt = new DecisionTree(s, depth, selection_range, gamma);
-            outfile << json_state(s) << "||" << dt->root->q_value << endl;
-        }
+        dt->save_to_file(outfile);
         delete dt;
     }
     outfile.close();
